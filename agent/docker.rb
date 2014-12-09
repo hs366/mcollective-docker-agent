@@ -1,141 +1,311 @@
-require 'docker'
-include Docker
+require 'excon'
+require 'json'
 
 module MCollective
-  module Agent
-    class Docker<RPC::Agent
-	metadata    :name        => "Docker Access Agent",
-	            :description => "Agent to access the Docker API via MCollective",
-	            :author      => "Andreas Schmidt [@aschmidt75]",
-	            :license     => "Apache 2",
-	            :version     => "1.0",
-	            :url         => "http://github.com...",
-	            :timeout     => 60
+    module Agent
+        class Docker<RPC::Agent
 
+            action "info" do
+                logger.debug "docker/info"
 
-	# query all containers, retrieve same information
-	# as docker ps
-	action "ps" do
-		logger.debug "docker/ps"
+                begin
+                    reply[:info] = _request(:get, 'info')
+                rescue => e
+                    reply.fail! "Error querying docker api (GET /info), #{e}"
+                    logger.error e
+                end
+                logger.debug "docker/info done."
+            end
+            action "containers" do
+                logger.debug "docker/containers"
 
-		begin
-			options = {}
-			options[:all] = true 		if request[:all] 
-			v = request[:limit]
-			options[:limit] = v.to_i	if v 
+                options = {}
+                [:all, :limit, :sinceId, :beforeId].each {|o|
+                    options[o] = request[o] if request[o]
+                }
+                logger.debug "docker/containers options=#{options}"
+                begin
+                    reply[:containers] = _request(:get, 'containers/json?', options)
+                rescue => e
+                    reply.fail! "Error querying docker api (GET containers/json), #{e}"
+                    logger.error e
+                end
+                logger.debug "docker/containers done."
+            end
+            action "createcontainer" do
+                logger.debug "docker/createcontainer" 
+                options = {}
+                options[:name] = request[:name] if request[:name]
 
-			[ :beforeId, :sinceId ].each do |sym|	
-				if request[sym] then
-					validate sym, String
-					validate sym, /^[0-9a-fA-F]+$/
-					options[sym] = request[sym]
-				end
-			end
+                begin
+                    reply[:exitcode] = _request(:post, "containers/create?", options, request[:config])
+                rescue => e
+                    reply.fail! "Error querying docker api (POST containers/create), #{e}"
+                    logger.error e
+                end
+                logger.debug "docker/createcontainer done."
+            end
+            action "inspectcontainer" do
+                logger.debug "docker/inspectcontainer"
 
-			logger.debug "docker/ps options=#{options}"
-			reply[:containers] = get_containers.list(options)
-		rescue => e
-			reply.fail! "Error querying docker api (ps), #{e}"
-			logger.error e
-		end
-		logger.debug "docker/ps done."
-	end
+                begin
+                    reply[:details] = _request(:get, "containers/#{request[:id]}/json")
+                rescue => e
+                    reply.fail! "Error querying docker api (GET containers/#{request[:id]}/json), #{e}"
+                    logger.error e
+                end
+                logger.debug "docker/inspectcontainer done."
+            end
+            action "top" do
+                logger.debug "docker/top"
+                options = {}
+                options[:ps_args] = request[:psargs] if request[:psargs]
 
-	# retrieve container information, given by container id
-	action "inspect" do
-		validate :id, String
-		validate :id, /^[0-9a-fA-F]+$/
+                begin
+                    reply[:processes] = _request(:get, "containers/#{request[:id]}/top?", options)
+                rescue => e
+                    reply.fail! "Error querying docker api (GET containers/#{request[:id]}/top), #{e}"
+                    logger.error e
+                end
+                logger.debug "docker/top done."
+            end
+            action "changes" do
+                logger.debug "docker/changes"
 
-		begin
-			id = request[:id]
-			logger.debug "docker/inspect, id=#{id}"
-			
-			reply[:details] = get_containers.show(id)
-		rescue => e
-			reply.fail! "Error querying docker api (inspect), #{e}"
-			logger.error e
-		end
-		logger.debug "docker/inspect done."
-	end
+                begin
+                    reply[:processes] = _request(:get, "containers/#{request[:id]}/changes")
+                rescue => e
+                    reply.fail! "Error querying docker api (GET containers/#{request[:id]}/changes), #{e}"
+                    logger.error e
+                end
+                logger.debug "docker/changes done."
+            end
+            action "start" do
+                logger.debug "docker/start" 
 
-	# retrieve container fs changes
-	action "diff" do
-		validate :id, String
-		validate :id, /^[0-9a-fA-F]+$/
+                begin
+                    reply[:exitcode] = _request(:post, "containers/#{request[:id]}/start")
+                rescue => e
+                    reply.fail! "Error querying docker api (POST containers/#{request[:id]}/start), #{e}"
+                    logger.error e
+                end
+                logger.debug "docker/start done."
+            end
+            action "stop" do
+                logger.debug "docker/stop" 
+                options = {}
+                options[:t] = request[:timeout] if request[:timeout]
 
-		begin
-			id = request[:id]
-			logger.debug "docker/diff, id=#{id}"
+                begin
+                    reply[:exitcode] = _request(:post, "containers/#{request[:id]}/stop?", options)
+                rescue => e
+                    reply.fail! "Error querying docker api (POST containers/#{request[:id]}/stop), #{e}"
+                    logger.error e
+                end
+                logger.debug "docker/stop done."
+            end
+            action "restart" do
+                logger.debug "docker/restart" 
+                options = {}
+                options[:t] = request[:timeout] if request[:timeout]
 
-			reply[:changes] = get_containers.changes(id)
-		rescue => e
-			reply.fail! "Error querying docker api (diff), #{e}"
-			logger.error e
-		end
-		logger.debug "docker/diff done."
-	end
+                begin
+                    reply[:exitcode] = _request(:post, "containers/#{request[:id]}/restart?", options)
+                rescue => e
+                    reply.fail! "Error querying docker api (POST containers/#{request[:id]}/restart), #{e}"
+                    logger.error e
+                end
+                logger.debug "docker/restart done."
+            end
+            action "kill" do
+                logger.debug "docker/kill" 
+                options = {}
+                options[:signal] = request[:signal] if request[:signal]
 
-	# remove a (running) container
-	action "rm" do
-		validate :id, String
-		validate :id, /^[0-9a-fA-F]+$/
+                begin
+                    reply[:exitcode] = _request(:post, "containers/#{request[:id]}/kill?", options)
+                rescue => e
+                    reply.fail! "Error querying docker api (POST containers/#{request[:id]}/kill), #{e}"
+                    logger.error e
+                end
+                logger.debug "docker/kill done."
+            end
+            action "pause" do
+                logger.debug "docker/pause" 
 
-		begin
-			id = request[:id]
-			logger.debug "docker/rm, id=#{id}"
+                begin
+                    reply[:exitcode] = _request(:post, "containers/#{request[:id]}/pause")
+                rescue => e
+                    reply.fail! "Error querying docker api (POST containers/#{request[:id]}/pause), #{e}"
+                    logger.error e
+                end
+                logger.debug "docker/pause done."
+            end
+            action "unpause" do
+                logger.debug "docker/unpause" 
 
-			reply[:changes] = get_containers.remove(id)
-		rescue => e
-			reply.fail! "Error querying docker api (remove), #{e}"
-			logger.error e
-		end
-		logger.debug "docker/rm done."
-	end
+                begin
+                    reply[:exitcode] = _request(:post, "containers/#{request[:id]}/unpause")
+                rescue => e
+                    reply.fail! "Error querying docker api (POST containers/#{request[:id]}/unpause), #{e}"
+                    logger.error e
+                end
+                logger.debug "docker/unpause done."
+            end
+            action "deletecontainer" do
+                logger.debug "docker/deletecontainer" 
+                options = {}
+                options[:v] = request[:rmvolumes] if request[:rmvolumes]
+                options[:force] = request[:force] if request[:force]
 
-	[ "start", "stop", "kill", "restart" ].each do |c|
-		action c do
-			validate :id, String
-			validate :id, /^[0-9a-fA-F]+$/
-	
-			begin
-				id = request[:id]
-				logger.debug "docker/#{c}, id=#{id}"
-	
-				reply[:exitcode] = get_containers.send(c,id)
+                begin
+                    reply[:exitcode] = _request(:delete, "containers/#{request[:id]}?", options)
+                rescue => e
+                    reply.fail! "Error querying docker api (DELETE containers/#{request[:id]}), #{e}"
+                    logger.error e
+                end
+                logger.debug "docker/deletecontainer done."
+            end
+            action "images" do
+                logger.debug "docker/images"
 
-				logger.debug "done with cmd=#{c} on id=#{id}"
-			rescue => e
-				reply.fail! "Error querying docker api (#{c}), #{e}"
-				logger.error e
-			end
-			logger.debug "docker/#{c} done."
-		end
-	end
+                options = {}
+                [:all, :filters].each {|o|
+                    options[o] = request[o] if request[o]
+                }
+                logger.debug "docker/images options=#{options}"
+                begin
+                    reply[:images] = _request(:get, 'images/json?', options)
+                rescue => e
+                    reply.fail! "Error querying docker api (GET images/json), #{e}"
+                    logger.error e
+                end
+                logger.debug "docker/images done."
+            end
+            action "createimage" do
+                logger.debug "docker/createimage" 
+                options = {}
+                [:repo, :tag, :registry].each {|o|
+                    options[o] = request[o] if request[o]
+                }
+                options[:fromImage] = request[:fromimage] if request[:fromimage]
 
+                begin
+                    reply[:exitcode] = _request(:post, "images/create?", options)
+                rescue => e
+                    reply.fail! "Error querying docker api (POST images/create), #{e}"
+                    logger.error e
+                end
+                logger.debug "docker/createimage done."
+            end
+            action "inspectimage" do
+                logger.debug "docker/inspectimage"
 
-	action "images" do
-		logger.debug "docker/images"
-		begin
-			reply[:images] = get_images.list
-		rescue => e
-			reply.fail! "Error querying docker api (images), #{e}"
-			logger.error e
-		end
-		logger.debug "docker/images done."
-	end
+                begin
+                    reply[:details] = _request(:get, "images/#{request[:name]}/json")
+                rescue => e
+                    reply.fail! "Error querying docker api (GET images/#{request[:name]}/json), #{e}"
+                    logger.error e
+                end
+                logger.debug "docker/inspectimage done."
+            end
+            action "history" do
+                logger.debug "docker/history"
 
-      private
-      def get_containers
-	config = { :base_url => 'http://localhost:4243' }
-	docker = API.new(config)
-	docker.containers
-      end
-      def get_images
-	config = { :base_url => 'http://localhost:4243' }
-	docker = API.new(config)
-	docker.images
-      end
+                begin
+                    reply[:history] = _request(:get, "images/#{request[:name]}/history")
+                rescue => e
+                    reply.fail! "Error querying docker api (GET images/#{request[:name]}/history), #{e}"
+                    logger.error e
+                end
+                logger.debug "docker/history done."
+            end
+            action "push" do
+                logger.debug "docker/push" 
+                options = {}
+                options[:tag] = request[:tag] if request[:tag]
+
+                begin
+                    if request[:registry]
+                        reply[:exitcode] = _request(:post, "images/#{request[:registry]}/#{request[:name]}/push?", 
+                                                    options)
+                    else
+                        reply[:exitcode] = _request(:post, "images/#{request[:name]}/push?", options)
+                    end
+                rescue => e
+                    reply.fail! "Error querying docker api (POST images/#{request[:name]}/push), #{e}"
+                    logger.error e
+                end
+                logger.debug "docker/push done."
+            end
+            action "tag" do
+                logger.debug "docker/tag" 
+                options = {}
+                [:repo, :tag, :force].each {|o|
+                    options[o] = request[o] if request[o]
+                }
+
+                begin
+                    reply[:exitcode] = _request(:post, "images/#{request[:name]}/tag?", options)
+                rescue => e
+                    reply.fail! "Error querying docker api (POST images/#{request[:name]}/tag), #{e}"
+                    logger.error e
+                end
+                logger.debug "docker/tag done."
+            end
+            action "deleteimage" do
+                logger.debug "docker/deleteimage" 
+                options = {}
+                [:noprune, :force].each {|o|
+                    options[o] = request[o] if request[o]
+                }
+                reply[:exitcode] = _request(:delete, "images/#{request[:id]}?", options)
+                logger.debug "docker/deleteimage done."
+            end
+            action "build" do
+            end
+            action "version" do
+            end
+            action "ping" do
+            end
+            action "commit" do
+            end
+            action "events" do
+            end
+            private
+            def _request(htmethod, endpoint, options = {}, body = "")
+                rs = endpoint
+                unless options == {}
+                    options.each {|r| rs += "&" + URI.escape(r[0].to_s) + "=" + URI.escape(r[1].to_s) }
+                end
+                logger.debug "docker/_request htmethod=#{htmethod} endpoint=#{endpoint}, request=unix:///#{rs}, body=#{body}"
+                case htmethod
+                when :get
+                    response = Excon.get("unix:///#{rs}", :socket => '/var/run/docker.sock')
+                when :post
+                    response = Excon.post("unix:///#{rs}", :socket => '/var/run/docker.sock',
+                                          :body => body, :headers => {'Content-Type' => 'application/json'})
+                when :delete
+                    response = Excon.delete("unix:///#{rs}", :socket => '/var/run/docker.sock',
+                                            :body => body, :headers => {'Content-Type' => 'application/json'})
+                else
+                    raise "Internal error"
+                end
+
+                logger.debug "docker/_request status=#{response.status}"
+                case response.status
+                when 200
+                    return response.body
+                when 204
+                    return 204
+                else
+                    raise "Unable to fulfill request. HTTP status #{response.status}"
+                end
+            end
+            def _validateconfig
+                return true
+            end
+        end
     end
-  end
 end
 # vi:tabstop=2:expandtab:ai

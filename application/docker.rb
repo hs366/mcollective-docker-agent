@@ -53,7 +53,15 @@ class MCollective::Application::Docker<MCollective::Application
 	send(method,mc,configuration)
    end
 
-	
+   def run_command_info(mc,c)
+	   rpc_res = mc.info()
+	   rpc_res.each do |rpc_obj|
+		   result = rpc_obj.results || {}
+		   data = result[:data] || {}
+		   puts data[:info]
+	   end
+   end
+
    def run_command_ps(mc,c)
 	opts = {}
 	if c[:all] then
