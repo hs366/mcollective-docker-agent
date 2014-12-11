@@ -1,5 +1,6 @@
 require 'excon'
 require 'json'
+require 'socket'
 
 module MCollective
     module Agent
@@ -38,7 +39,10 @@ module MCollective
                 options[:name] = request[:name] if request[:name]
 
                 begin
-                    reply[:exitcode] = _request(:post, "containers/create?", options, request[:config])
+                    _validateconfig(request[:config])
+                    info = JSON.parse(_request(:post, "containers/create?", options, request[:config]))
+                    reply[:warnings] = info[:warnings] if info[:warnings]
+                    reply[:id] = info[:id] if info[:id]
                 rescue => e
                     reply.fail! "Error querying docker api (POST containers/create), #{e}"
                     logger.error e
@@ -296,14 +300,22 @@ module MCollective
                 case response.status
                 when 200
                     return response.body
+                when 201
+                    return response.body
                 when 204
                     return 204
                 else
                     raise "Unable to fulfill request. HTTP status #{response.status}"
                 end
             end
-            def _validateconfig
-                return true
+            def _validateconfig(config)
+              c = JSON.parse(config)
+              c[:ExposedPorts].each {|pc|
+                  port = pc[0].gsub(/^(tcp|udp)\//, '').to_i
+                  server = TCPServer.new(pc[:HostIp], port)
+                  server.close
+              }
+              return true
             end
         end
     end

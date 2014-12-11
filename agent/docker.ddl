@@ -52,6 +52,37 @@ action "containers", :description => "Retrieve information about running contain
           :display_as  => "Containers"
 end
 
+action "createcontainer", :description => "Create an container" do
+	display :always
+
+	input	:name,
+		:description	=> "From image",
+		:prompt => "From",
+		:display_as	=> "From",
+		:type		=> :string,
+		:validation	=> '^[-\.a-zA-Z0-9_]+$',
+		:optional	=> :true,
+		:maxlength	=> 64
+
+
+	input	:config,
+		:description	=> "Container configuration in JSON format",
+		:prompt => "Configuration",
+		:display_as	=> "Configuration",
+		:type		=> :string,
+		:validation	=> '^.*$',
+		:optional	=> :false,
+		:maxlength	=> 65536
+
+	output :warnings,
+		:description	=> "Warnings",
+		:display_as   => "Warnings"
+
+	output :id,
+		:description => "ID of created container",
+		:display_as => "ID"
+end
+
 action "inspectcontainer", :description => "Inspect container details" do
 	display :always
 
@@ -123,6 +154,15 @@ action "start", :description => "Start a container" do
 		:validation	=> '^[a-fA-F0-9]+$',
 		:optional	=> :false,
 		:maxlength	=> 64
+
+	input	:hostconfig,
+		:description	=> "Host specific container configuration in JSON format",
+		:prompt => "Host Configuration",
+		:display_as	=> "Host Configuration",
+		:type		=> :string,
+		:validation	=> '^.*$',
+		:optional	=> :false,
+		:maxlength	=> 65536
 
 	output :exitcode,
 		:description	=> "return code of action",
