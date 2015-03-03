@@ -29,77 +29,80 @@ module MCollective
             end
             logger.debug "docker/version done."
         end
-
+	
       # there are a few parameters to add like: size and filters(status)
-      
         action "containers" do
-          logger.debug "docker/containers"
-          options = {}
-          [:all, :limit, :sinceId, :beforeId].each {|o|
-            options[o] = request[o] if request[o]
-          }
-          logger.debug "docker/containers options=#{options}"
-          begin
-            reply[:containers] = _request(:get, 'containers/json?', {}, options)
-          rescue => e
-            reply.fail! "Error querying docker api (GET containers/json), #{e}"
-            logger.error e
-          end
-          logger.debug "docker/containers done."
+            logger.debug "docker/containers"
+            options = {}
+            [:all, :limit, :sinceId, :beforeId].each {|o|
+               options[o] = request[o] if request[o]
+            }
+            logger.debug "docker/containers options=#{options}"
+            begin
+               reply[:containers] = _request(:get, 'containers/json?', {}, options)
+            rescue => e
+               reply.fail! "Error querying docker api (GET containers/json), #{e}"
+               logger.error e
+            end
+            logger.debug "docker/containers done."
         end
 
         action "createcontainer" do
-          logger.debug "docker/createcontainer" 
-          options = {}
-          options[:name] = request[:name] if request[:name]
+            logger.debug "docker/createcontainer" 
+            options = {}
+            options[:name] = request[:name] if request[:name]
 	
-          begin
-            _validateconfig(request[:config])
-            info = JSON.parse(_request(:post, "containers/create", options, request[:config]))
-            reply[:warnings] = info[:warnings] if info[:warnings]
-            reply[:id] = info[:id] if info[:id]
-            reply[:id] = _request(:post, 'containers/create')
-          rescue => e
-            reply.fail! "Error: querying docker api (POST containers/create), #{e}"
-            logger.error e
-          end
-          logger.debug "docker/createcontainer done."
+            begin
+               _validateconfig(request[:config])
+               info = JSON.parse(_request(:post, "containers/create", options, request[:config]))
+               reply[:warnings] = info[:warnings] if info[:warnings]
+               reply[:id] = info[:id] if info[:id]
+               reply[:id] = _request(:post, 'containers/create')
+            rescue => e
+               reply.fail! "Error: querying docker api (POST containers/create), #{e}"
+               logger.error e
+            end
+            logger.debug "docker/createcontainer done."
         end
-      action "inspectcontainer" do
-        logger.debug "docker/inspectcontainer"
-        begin
-          reply[:details] = _request(:get, "containers/#{request[:id]}/json")
-        rescue => e
-          reply.fail! "Error querying docker api (GET containers/#{request[:id]}/json), #{e}"
-          logger.error e
-        end
-        logger.debug "docker/inspectcontainer done."
-      end
-      action "top" do
-        logger.debug "docker/top"
-        options = {}
-        options[:ps_args] = request[:psargs] if request[:psargs]
 
-        begin
-          reply[:processes] = _request(:get, "containers/#{request[:id]}/top?", options)
-        rescue => e
-          reply.fail! "Error querying docker api (GET containers/#{request[:id]}/top), #{e}"
-          logger.error e
+        action "inspectcontainer" do
+            logger.debug "docker/inspectcontainer"
+            begin
+                reply[:details] = _request(:get, "containers/#{request[:id]}/json")
+            rescue => e
+                reply.fail! "Error querying docker api (GET containers/#{request[:id]}/json), #{e}"
+                logger.error e
+            end
+            logger.debug "docker/inspectcontainer done."
         end
-        logger.debug "docker/top done."
-      end
-      action "changes" do
-        logger.debug "docker/changes"
 
-        begin
-          reply[:processes] = _request(:get, "containers/#{request[:id]}/changes")
-        rescue => e
-          reply.fail! "Error querying docker api (GET containers/#{request[:id]}/changes), #{e}"
-          logger.error e
+        action "top" do
+            logger.debug "docker/top"
+            options = {}
+            options[:ps_args] = request[:psargs] if request[:psargs]
+
+            begin
+               reply[:processes] = _request(:get, "containers/#{request[:id]}/top?", options)
+            rescue => e
+               reply.fail! "Error querying docker api (GET containers/#{request[:id]}/top), #{e}"
+               logger.error e
+            end
+            logger.debug "docker/top done."
         end
-        logger.debug "docker/changes done."
-      end
-      action "start" do
+
+        action "changes" do
+            logger.debug "docker/changes"
+
+            begin
+               reply[:processes] = _request(:get, "containers/#{request[:id]}/changes")
+            rescue => e
+               reply.fail! "Error querying docker api (GET containers/#{request[:id]}/changes), #{e}"
+               logger.error e
+            end
+            logger.debug "docker/changes done."
+        end
+
+        action "start" do
         logger.debug "docker/start" 
 
         begin
@@ -110,7 +113,8 @@ module MCollective
         end
         logger.debug "docker/start done."
       end
-      action "stop" do
+
+        action "stop" do
         logger.debug "docker/stop" 
         options = {}
         options[:t] = request[:timeout] if request[:timeout]
@@ -123,7 +127,8 @@ module MCollective
         end
         logger.debug "docker/stop done."
       end
-      action "restart" do
+
+        action "restart" do
         logger.debug "docker/restart" 
         options = {}
         options[:t] = request[:timeout] if request[:timeout]
@@ -136,7 +141,8 @@ module MCollective
         end
         logger.debug "docker/restart done."
       end
-      action "kill" do
+      
+	action "kill" do
         logger.debug "docker/kill" 
         options = {}
         options[:signal] = request[:signal] if request[:signal]
@@ -149,7 +155,8 @@ module MCollective
         end
         logger.debug "docker/kill done."
       end
-      action "pause" do
+      	
+	action "pause" do
         logger.debug "docker/pause" 
 
         begin
@@ -160,7 +167,8 @@ module MCollective
         end
         logger.debug "docker/pause done."
       end
-      action "unpause" do
+      	
+	action "unpause" do
         logger.debug "docker/unpause" 
 
         begin
@@ -171,7 +179,8 @@ module MCollective
         end
         logger.debug "docker/unpause done."
       end
-      action "deletecontainer" do
+     	
+	action "deletecontainer" do
         logger.debug "docker/deletecontainer" 
         options = {}
         options[:v] = request[:rmvolumes] if request[:rmvolumes]
@@ -185,7 +194,8 @@ module MCollective
         end
         logger.debug "docker/deletecontainer done."
       end
-      action "images" do
+
+      	action "images" do
         logger.debug "docker/images"
 
         options = {}
@@ -201,7 +211,8 @@ module MCollective
         end
         logger.debug "docker/images done."
       end
-      action "createimage" do
+      
+	action "createimage" do
         logger.debug "docker/createimage" 
         options = {}
         [:repo, :tag, :registry].each {|o|
@@ -217,7 +228,8 @@ module MCollective
         end
         logger.debug "docker/createimage done."
       end
-      action "inspectimage" do
+      
+	action "inspectimage" do
         logger.debug "docker/inspectimage"
 
         begin
@@ -228,7 +240,8 @@ module MCollective
         end
         logger.debug "docker/inspectimage done."
       end
-      action "history" do
+      
+	action "history" do
         logger.debug "docker/history"
 
         begin
@@ -239,7 +252,8 @@ module MCollective
         end
         logger.debug "docker/history done."
       end
-      action "push" do
+      
+	action "push" do
         logger.debug "docker/push" 
         options = {}
         options[:tag] = request[:tag] if request[:tag]
@@ -257,7 +271,8 @@ module MCollective
         end
         logger.debug "docker/push done."
       end
-      action "tag" do
+      
+	action "tag" do
         logger.debug "docker/tag" 
         options = {}
         [:repo, :tag, :force].each {|o|
@@ -272,7 +287,8 @@ module MCollective
         end
         logger.debug "docker/tag done."
       end
-      action "deleteimage" do
+      
+	action "deleteimage" do
         logger.debug "docker/deleteimage" 
         options = {}
         [:noprune, :force].each {|o|
@@ -280,8 +296,6 @@ module MCollective
         }
         reply[:exitcode] = _request(:delete, "images/#{request[:id]}?", options)
         logger.debug "docker/deleteimage done."
-      end
-      action "build" do
       end
 
       #TODO 
@@ -295,10 +309,9 @@ module MCollective
         end
         logger.debug "docker/ping done."
       end
-      action "commit" do
-      end
-      #TODO
-      action "events" do
+      
+	#TODO
+      	action "events" do
         logger.debug "docker/events"
         options = {}
         [:since, :until].each {|o|
@@ -313,7 +326,13 @@ module MCollective
         end
         logger.debug "docker/events done."
       end
-
+	
+	# TODO
+	action "commit" do
+	end
+	action "build" do
+	end
+	
       private
       def _request(htmethod, endpoint, options = {}, body = "")
         rs = endpoint
@@ -346,6 +365,7 @@ module MCollective
           raise "Unable to fulfill request. HTTP status #{response.status}"
         end
       end
+      
       def _validateconfig(config)
         c = JSON.parse(config)
         c[:ExposedPorts].each {|pc|
