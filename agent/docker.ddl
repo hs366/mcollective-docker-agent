@@ -1,17 +1,32 @@
 metadata    :name        => "Docker Access Agent",
             :description => "Agent to access the Docker API via MCollective",
-            :author      => "Andreas Schmidt [@aschmidt75]",
+            :author      => "Martin Uddén",
             :license     => "Apache 2",
             :version     => "1.0",
             :url         => "http://github.com...",
             :timeout     => 60
 
 
-action "info", :description => "Retrieve information about the docker system" do
+action "info", :description => "Retrieve system-wide information about the docker system" do
 	output :info,
 		:description => "Output from /info API call",
 			:display_as => "Info"
 end
+
+
+action "version", :description => "Retrieve docker version information" do
+        output :version,
+                :description => "Output from /version API call",
+                        :display_as => "Version"
+end
+
+
+action "ping", :description => "Ping the docker server" do
+        output :exitcode,
+                :description => "Output from /version API call",
+                        :display_as => "Info"
+end
+
 
 action "containers", :description => "Retrieve information about running containers" do
 
@@ -383,7 +398,7 @@ action "inspectimage", :description => "Retrieve information about an image" do
 		:prompt => "Name",
 		:display_as	=> "Name",
 		:type		=> :string,
-		:optional	=> :true,
+		:optional	=> :false,
 		:validation	=> '^/?[-\.a-zA-Z0-9_]+$',
 		:maxlength	=> 64
 
@@ -398,7 +413,7 @@ action "history", :description => "Retrieve history of an image" do
 		:prompt => "Name",
 		:display_as	=> "Name",
 		:type		=> :string,
-		:optional	=> :true,
+		:optional	=> :false,
 		:validation	=> '^/?[-\.a-zA-Z0-9_]+$',
 		:maxlength	=> 64
 
@@ -518,3 +533,29 @@ action "deleteimage", :description => "Delete a image" do
 		:description	=> "return code of action",
 		:display_as   => "exitcode"
 end
+
+
+
+action "events", :description => "Retrieve container events from docker" do
+	display :always
+
+	input	:since,
+		:description	=> "Timestamp used for polling",
+		:type		=> :integer,
+		:prompt => "Time",
+		:display_as	=> "Since",
+		:optional	=> :false
+
+	input	:until,
+		:description	=> "Timestamp used for polling",
+		:type		=> :integer,
+		:prompt => "Time",
+		:display_as	=> "Until",
+		:optional	=> :false
+
+
+	output :exitcode,
+		:description	=> "Output from API call, map of container events",
+		:display_as   => "events"
+end
+

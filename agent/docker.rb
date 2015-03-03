@@ -1,11 +1,13 @@
 require 'excon'
 require 'json'
 require 'socket'
+require 'facter'
+
 
 module MCollective
     module Agent
         class Docker<RPC::Agent
-
+	
             action "info" do
                 logger.debug "docker/info"
 
@@ -17,6 +19,21 @@ module MCollective
                 end
                 logger.debug "docker/info done."
             end
+            
+            action "version" do
+		logger.debug "docker/version"
+
+		begin
+		    reply[:version] = _request(:get, 'version') 
+		rescue => e
+		    reply.fail! "Error querying docker api (GET /version), #{e}"
+		    logger.error e
+		end
+		logger.debug "docker/version done."
+            end
+
+            # there are a few parameters to add like: size and filters(status)
+            
             action "containers" do
                 logger.debug "docker/containers"
 
@@ -26,7 +43,7 @@ module MCollective
                 }
                 logger.debug "docker/containers options=#{options}"
                 begin
-                    reply[:containers] = _request(:get, 'containers/json?', options)
+                    reply[:containers] = _request(:get, 'containers/json?', {}, options)
                 rescue => e
                     reply.fail! "Error querying docker api (GET containers/json), #{e}"
                     logger.error e
@@ -37,14 +54,15 @@ module MCollective
                 logger.debug "docker/createcontainer" 
                 options = {}
                 options[:name] = request[:name] if request[:name]
-
+	
                 begin
                     _validateconfig(request[:config])
-                    info = JSON.parse(_request(:post, "containers/create?", options, request[:config]))
+                    info = JSON.parse(_request(:post, "containers/create", options, request[:config]))
                     reply[:warnings] = info[:warnings] if info[:warnings]
                     reply[:id] = info[:id] if info[:id]
+		    reply[:id] = _request(:post, 'containers/create')
                 rescue => e
-                    reply.fail! "Error querying docker api (POST containers/create), #{e}"
+                    reply.fail! "Error: querying docker api (POST containers/create), #{e}"
                     logger.error e
                 end
                 logger.debug "docker/createcontainer done."
@@ -193,7 +211,7 @@ module MCollective
                     options[o] = request[o] if request[o]
                 }
                 options[:fromImage] = request[:fromimage] if request[:fromimage]
-
+			
                 begin
                     reply[:exitcode] = _request(:post, "images/create?", options)
                 rescue => e
@@ -268,18 +286,43 @@ module MCollective
             end
             action "build" do
             end
-            action "version" do
-            end
+
+#
+#TODO 
             action "ping" do
+		logger.debug "docker/_ping"
+	    	begin
+		   reply[:ping] = _request(:get, '_ping')
+		rescue => e
+		   reply.fail! "Error querying docker api (GET _ping), #{e}"
+		   logger.error e
+		end
+		logger.debug "docker/ping done."
             end
             action "commit" do
             end
+#
+#TODO
             action "events" do
-            end
+        	logger.debug "docker/events"
+		options = {}
+		[:since, :until].each {|o|
+		     options[o] = request[o] if request[o]
+		}
+		#logger.debug "docker/events options=#{options}"
+		begin
+		    reply[:events] = _request(:get, "events?", options)
+		rescue => e
+		    reply.fail! "Error querying docker api (GET events), #{e}"
+		    logger.error e
+		end
+        	logger.debug "docker/events done."
+	    end
+
             private
             def _request(htmethod, endpoint, options = {}, body = "")
                 rs = endpoint
-                unless options == {}
+                unless options.nil?
                     options.each {|r| rs += "&" + URI.escape(r[0].to_s) + "=" + URI.escape(r[1].to_s) }
                 end
                 logger.debug "docker/_request htmethod=#{htmethod} endpoint=#{endpoint}, request=unix:///#{rs}, body=#{body}"
@@ -315,9 +358,14 @@ module MCollective
                   server = TCPServer.new(pc[:HostIp], port)
                   server.close
               }
+	      extloader = Facter::Util::DirectoryLoader.loader_for(factsdir)
+              intloader = Facter::Util::Loader.new
+              collection = Facter::Util::Collection.new(intloader, extloader)
+              dockerexports = collection.fact("dockerexports").value.split(':')
+
               return true
             end
+	    factsdir = '/etc/facter/facts.d'
         end
     end
 end
-# vi:tabstop=2:expandtab:ai
